@@ -171,6 +171,21 @@
 
 (global-set-key (kbd "M-.") 'find-tag-lucky)
 
+(defun daves-backward-kill-word ()
+  "Behaves like normal backward-kill-word, except:
+    - Killing while in whitespace only kills the whitespace.
+    - Killing while in special chars only kills the special chars."
+  (interactive)
+  (if (bolp) (backward-delete-char 1)
+    (if (string-match "[\]\[()*+\\-]+$"
+		      (buffer-substring (point-at-bol) (point)))
+	(kill-region (+ (point-at-bol) (match-beginning 0)) (point))
+      (if (string-match "[[:blank:]]+$"
+			(buffer-substring (point-at-bol) (point)))
+	  (kill-region (+ (point-at-bol) (match-beginning 0)) (point))
+	(backward-kill-word 1)))))
+
+(global-set-key [C-backspace] 'daves-backward-kill-word)
 
 ;; -----------------------------------------------------------------------------
 ;;				     Custom
