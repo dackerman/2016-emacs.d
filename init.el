@@ -15,7 +15,7 @@
 (setq use-package-always-ensure t)
 
 (setq systems '(("recursion" . (linux unix home))
-		("st-dackerman1.local" . (mac unix work))
+		("st-dackerman1" . (mac unix work))
 		("bottom" . (mac unix home))
 		("?" . (windows home))))
 
@@ -39,24 +39,32 @@
 (global-linum-mode 1)
 
 (setq-default indent-tabs-mode nil) ; tabs to spaces
-(set-auto-saves)
 (setq inhibit-startup-message t)
 (setq inhibit-startup-echo-area-message t)
 (show-paren-mode 1)
 (setq tab-width 2)
 (setq scroll-step 1)
 
+(if-system
+ work
+ (setq org-agenda-files '("~/Dropbox (Stripe)/work/todo.org")))
+
+
 (add-to-list 'default-frame-alist
 	     '(font . "Droid Sans Mono-12"))
 
+;; Don't GC as often, we got memory
+(setq gc-cons-threshold 20000000)
+
 (use-package exec-path-from-shell
-  :if (system-is 'mac)
   :config
-  (exec-path-from-shell-initialize))
+  (when (memq window-system '(mac ns))
+    (exec-path-from-shell-initialize)))
 
 (use-package darktooth-theme
   :config
-  (load-theme 'darktooth t))
+  (load-theme 'darktooth t)
+  (set-frame-font "Inconsolata-12"))
 
 (use-package paredit
   :defer t
@@ -71,7 +79,8 @@
   (setq projectile-indexing-method 'alien)
   (setq projectile-use-git-grep t)
   (setq helm-projectile-fuzzy-match nil)
-  
+  (setq projectile-tags-command "/usr/local/bin/ctags -Re -f \"%s\" %s")
+
   :config
   (projectile-global-mode))
 
@@ -92,6 +101,34 @@
 (use-package company
   :defer t
   :config (global-company-mode))
+
+(defun my/use-eslint-from-node-modules ()
+  (let* ((root (locate-dominating-file
+                (or (buffer-file-name) default-directory)
+                "node_modules"))
+         (eslint (and root
+                      (expand-file-name "node_modules/eslint/bin/eslint.js"
+                                        root))))
+    (when (and eslint (file-executable-p eslint))
+      (setq-local flycheck-javascript-eslint-executable eslint))))
+
+(use-package flycheck
+  :init
+  (setq flycheck-ruby-rubocop-executable "/Users/dackerman/.rbenv/shims/rubocop")
+  (setq flycheck-ruby-executable "/Users/dackerman/.rbenv/shims/ruby")
+  ;;(setq flycheck-javascript-eslint-executable "npm lint")
+  
+  :config  
+  (setq-default flycheck-disabled-checkers
+                (append flycheck-disabled-checkers
+                        '(javascript-jshint)
+                        '(ruby-rubylint)
+                        '(json-jsonlist)))
+  
+  (add-hook 'flycheck-mode-hook #'my/use-eslint-from-node-modules)
+  ;; use eslint with web-mode for jsx files
+  (flycheck-add-mode 'javascript-eslint 'web-mode)
+  (global-flycheck-mode))
 
 ;; Emacs backups
 ;; * Don't clobber symlinks
@@ -125,14 +162,24 @@
 (use-package haskell-mode
   :defer t)
 
+(use-package yaml-mode
+  :defer t)
+
 (use-package markdown-mode
   :defer t
   :config
   (add-to-list 'auto-mode-alist '("\\.md" . markdown-mode))
   (add-to-list 'auto-mode-alist '("\\.markdown" . markdown-mode)))
 
+(use-package ruby-mode
+  :config
+  (defun my-ruby-mode-hook ()
+    (set-fill-column 80)
+    (add-hook 'before-save-hook 'delete-trailing-whitespace nil 'local)
+    (setq ruby-insert-encoding-magic-comment nil))
+  (add-hook 'ruby-mode-hook 'my-ruby-mode-hook))
+
 (use-package web-mode
-  :defer t
   :init
   (defun web-mode-customization ()
     "Customization for web-mode."
@@ -140,16 +187,13 @@
     (setq web-mode-css-indent-offset 2)
     (setq web-mode-code-indent-offset 2)
     (setq web-mode-enable-auto-pairing t)
-    (setq web-mode-enable-css-coloriztion t))
+    (setq web-mode-enable-css-coloriztion t)
+    (add-hook 'before-save-hook 'delete-trailing-whitespace nil 'local))
   (add-hook 'web-mode-hook 'web-mode-customization)
-  
-  :config
-  (add-to-list 'auto-mode-alist '("\\.html?" . web-mode))
-  (add-to-list 'auto-mode-alist '("\\.jsx?" . web-mode))
-  (add-to-list 'auto-mode-alist '("\\.json" . web-mode))
-  (add-to-list 'auto-mode-alist '("\\.css" . web-mode))
-  (add-to-list 'auto-mode-alist '("\\.less" . web-mode))
-  (add-to-list 'auto-mode-alist '("\\.sass" . web-mode)))
+
+  :mode ("\\.html?\\'" "\\.erb\\'" "\\.hbs\\'"
+         "\\.jsx?\\'" "\\.coffee\\'" "\\.json\\'"
+         "\\.s?css\\'" "\\.less\\'" "\\.sass\\'"))
 
 ;;(if-system linux
 ;; (require 'xcscope)
@@ -161,15 +205,27 @@
 ;; -----------------------------------------------------------------------------
 ;;				Custom Functions
 ;; -----------------------------------------------------------------------------
+
 (defun find-tag-lucky ()
-  "Find tag in project, pick first option."
+  "Find tag in project, picking the first possible."
   (interactive)
   (projectile-visit-project-tags-table)
   ;; Auto-discover the user's preference for tags
   (let ((find-tag-fn (projectile-determine-find-tag-fn)))
-    (funcall find-tag-fn (thing-at-point 'word))))
+    (funcall find-tag-fn (thing-at-point 'symbol))))
 
-(global-set-key (kbd "M-.") 'find-tag-lucky)
+(defvar my-keys-minor-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c p j") 'find-tag-lucky)
+    map)
+  "my-keys-minor-mode keymap.")
+
+(define-minor-mode my-keys-minor-mode
+  "A minor mode so that my key settings override annoying major modes."
+  :init-value t
+  :lighter " my-keys")
+
+(my-keys-minor-mode 1)
 
 (defun daves-backward-kill-word ()
   "Behaves like normal backward-kill-word, except:
@@ -186,6 +242,17 @@
 	(backward-kill-word 1)))))
 
 (global-set-key [C-backspace] 'daves-backward-kill-word)
+
+(defun insert-current-date ()
+  (interactive)
+  (insert (shell-command-to-string "echo -n $(date +%Y-%m-%d)")))
+
+(defalias 'insert-today 'insert-current-date)
+
+(defun atlaseng (jiranum)
+  (interactive "MATLASENG-")
+  (insert (format "https://jira.corp.stripe.com/browse/ATLASENG-%s"
+                  jiranum)))
 
 ;; -----------------------------------------------------------------------------
 ;;				     Custom
