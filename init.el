@@ -64,7 +64,9 @@
 (use-package darktooth-theme
   :config
   (load-theme 'darktooth t)
-  (set-frame-font "Inconsolata-12"))
+  (if-system
+   mac
+   (set-frame-font "Inconsolata-12")))
 
 (use-package paredit
   :defer t
