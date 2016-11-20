@@ -17,7 +17,7 @@
 (setq systems '(("recursion" . (linux unix home))
 		("st-dackerman1" . (mac unix work))
 		("bottom" . (mac unix home))
-		("?" . (windows home))))
+		("HULKING-BEAST" . (windows home))))
 
 (defun get-system ()
   (cdr (assoc system-name systems)))
@@ -50,8 +50,14 @@
  (setq org-agenda-files '("~/Dropbox (Stripe)/work/todo.org")))
 
 
-(add-to-list 'default-frame-alist
-	     '(font . "Droid Sans Mono-12"))
+(if-system
+ linux
+ (add-to-list 'default-frame-alist
+              '(font . "Droid Sans Mono-12")))
+(if-system
+ windows
+ (add-to-list 'default-frame-alist
+              '(font . "Courier New-12")))
 
 ;; Don't GC as often, we got memory
 (setq gc-cons-threshold 20000000)
