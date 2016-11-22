@@ -25,6 +25,13 @@
 (defun system-is (prop)
   (member prop (get-system)))
 
+(defun for-system (lst lam)
+  (let ((cur (car lst))
+        (rest (cdr lst)))
+    (if (system-is (car cur))
+        (funcall lam (cdr cur))
+      (for-system rest lam))))
+
 (defmacro if-system (prop &rest body)
     (when (system-is prop)
       `(progn ,@body)))
@@ -50,14 +57,15 @@
  (setq org-agenda-files '("~/Dropbox (Stripe)/work/todo.org")))
 
 
-(if-system
- linux
- (add-to-list 'default-frame-alist
-              '(font . "Droid Sans Mono-12")))
-(if-system
- windows
- (add-to-list 'default-frame-alist
-              '(font . "Courier New-12")))
+(setq fonts '((linux . "Droid Sans Mono-12")
+              (mac . "Inconsolata-12")
+              (windows . "DejaVu Sans Mono-12")))
+
+(for-system fonts
+            (lambda (font)
+              (set-frame-font font nil t)))
+
+(for-system fonts (lambda (font) font))
 
 ;; Don't GC as often, we got memory
 (setq gc-cons-threshold 20000000)
@@ -84,7 +92,9 @@
 
 (use-package projectile
   :init
-  (setq projectile-indexing-method 'alien)
+  (if-system
+   unix
+   (setq projectile-indexing-method 'alien))
   (setq projectile-use-git-grep t)
   (setq helm-projectile-fuzzy-match nil)
   (setq projectile-tags-command "/usr/local/bin/ctags -Re -f \"%s\" %s")
