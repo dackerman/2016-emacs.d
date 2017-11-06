@@ -135,18 +135,22 @@
   (setq flycheck-ruby-rubocop-executable "/Users/dackerman/.rbenv/shims/rubocop")
   (setq flycheck-ruby-executable "/Users/dackerman/.rbenv/shims/ruby")
   ;;(setq flycheck-javascript-eslint-executable "npm lint")
-  
-  :config  
+
+  :config
   (setq-default flycheck-disabled-checkers
                 (append flycheck-disabled-checkers
                         '(javascript-jshint)
                         '(ruby-rubylint)
                         '(json-jsonlist)))
-  
+
   (add-hook 'flycheck-mode-hook #'my/use-eslint-from-node-modules)
   ;; use eslint with web-mode for jsx files
   (flycheck-add-mode 'javascript-eslint 'web-mode)
   (global-flycheck-mode))
+
+(use-package prettier-js
+  :config
+  (add-hook 'web-mode-hook 'prettier-js-mode))
 
 ;; Emacs backups
 ;; * Don't clobber symlinks
@@ -177,8 +181,28 @@
   :init
   (add-hook 'purescript-mode-hook 'turn-on-purescript-indentation))
 
+
+
 (use-package haskell-mode
-  :defer t)
+  :config
+  (defun my-haskell-hook ()
+    (defun my-save-hook ()
+      (haskell-align-imports)
+      (haskell-sort-imports)
+      (delete-trailing-whitespace))
+    (intero-mode)
+    (add-hook 'before-save-hook 'my-save-hook))
+
+  (add-hook 'haskell-mode-hook 'my-haskell-hook))
+
+(use-package w3m)
+
+(require 'w3m-haddock)
+(add-hook 'w3m-display-hook 'w3m-haddock-display)
+
+;(package-refresh-contents)
+;(package-install 'intero)
+;(add-hook 'haskell-mode-hook 'intero-mode)
 
 (use-package yaml-mode
   :defer t)
@@ -281,13 +305,15 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(haskell-w3m-haddock-dirs
+   (quote
+    ("~/.stack/snapshots/x86_64-linux-nopie/lts-9.6/8.0.2/doc")))
  '(package-selected-packages
    (quote
-    (exec-path-from-shell web-mode markdown-mode haskell-mode purescript-mode rust-mode company magit helm-projectile helm projectile paredit darktooth-theme use-package))))
+    (w3m prettier-js csharp-mode intero exec-path-from-shell web-mode markdown-mode haskell-mode purescript-mode rust-mode company magit helm-projectile helm projectile paredit darktooth-theme use-package))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  )
-
